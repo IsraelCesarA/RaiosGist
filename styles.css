@@ -1,14 +1,22 @@
+/* Configuração Global */
 html, body {
     height: 100%; 
     margin: 0;
     font-family: Arial, sans-serif;
+    overflow: hidden; /* Evita barras de rolagem desnecessárias */
 }
+
+/* O Mapa */
 #map {
-    height: calc(100% - 100px); /* Altura do mapa ajustada para liberar espaço para o search-bar */
+    /* O mapa ocupa 100% da altura, menos a altura da barra de busca */
+    height: calc(100% - 95px); 
     z-index: 1;
 }
+
+/* Barra de Busca Superior */
 #search-bar {
-    background: #eef2ff;
+    height: 95px; /* Altura fixa para a barra de busca */
+    background: #f4f4f5;
     padding: 8px;
     display: flex;
     flex-direction: column;
@@ -16,34 +24,42 @@ html, body {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     position: relative;
     z-index: 10;
+    box-sizing: border-box; /* Garante que o padding não aumente a altura */
 }
+
 .input-group {
     border: 1px solid #d1d5db;
-    padding: 8px;
+    padding: 6px 8px;
     border-radius: 6px;
     margin: 0;
 }
+
 .input-group legend {
     font-weight: bold;
     color: #1f2937;
     padding: 0 4px;
+    font-size: 13px;
 }
+
 .linha-inputs {
     display: flex; 
     gap: 6px; 
-    flex-wrap: wrap; /* Permite que os inputs quebrem a linha em telas pequenas */
+    flex-wrap: wrap; 
     align-items: center;
 }
+
 input[type="number"], button {
-    padding: 8px;
+    padding: 6px;
     border-radius: 4px;
     border: 1px solid #ccc;
     font-size: 14px;
 }
+
 input[type="number"] {
     flex: 1;
     min-width: 100px;
 }
+
 button {
     background: #4f46e5;
     color: white;
@@ -51,69 +67,69 @@ button {
     transition: background-color 0.2s;
     flex-grow: 0;
 }
+
 button:hover {
     background: #4338ca;
 }
-/* Estilo específico para o botão da Sonda */
-.button-sonda {
-    background: #10b981;
-}
-.button-sonda:hover {
-    background: #059669;
-}
-.button-sonda.active {
-    background: #dc2626; /* Cor de desativação */
-}
-.button-sonda.active:hover {
-    background: #b91c1c;
-}
 
-/* Painel de informações (Legenda e Sonda) - Movido para Inferior Esquerdo */
+/* Painel de Informações (Inferior Esquerdo) */
 .info-panel {
     position: absolute;
-    bottom: 10px; /* Inferior */
-    left: 10px; /* Esquerdo */
-    background: white;
-    padding: 10px 14px;
+    bottom: 10px; /* Movido para baixo */
+    left: 10px;  /* Movido para esquerda */
+    background: rgba(255, 255, 255, 0.95);
+    padding: 8px 12px;
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.5;
-    max-width: 300px;
-    z-index: 1000; /* Garante que fique acima do mapa */
+    max-width: 280px;
+    z-index: 1000; 
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
 .info-panel fieldset {
     border: 1px solid #d1d5db;
-    padding: 8px;
+    padding: 6px 8px;
     border-radius: 4px;
+    margin: 0;
 }
+
 .info-panel legend {
     font-weight: bold;
     color: #1f2937;
     padding: 0 4px;
-    font-size: 13px;
+    font-size: 12px;
 }
 
-/* Layout de Sonda (Garante que Lat e Lng fiquem lado a lado) */
+/* Layout de Sonda (Correção para Lng visível) */
 .info-sonda .sonda-coords {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: nowrap; /* Impede a quebra de Lat/Lng */
     align-items: center;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
 }
 .info-sonda .coord-item {
-    white-space: nowrap; /* Evita quebra de linha no label */
+    white-space: nowrap; 
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 13px;
 }
+.info-sonda .sonda-controls {
+    display: flex;
+    gap: 5px;
+}
+.info-sonda .sonda-controls input {
+    width: 60px; /* Espaço para o raio da sonda */
+}
+.info-sonda .sonda-controls button {
+    flex: 1;
+}
+
 .info-validadores strong {
-    font-size: 15px;
+    font-size: 14px;
     color: #4f46e5;
 }
 
@@ -121,7 +137,7 @@ button:hover {
 .legend-item {
     display: flex; 
     align-items: center; 
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 .legend-color {
     width: 14px; 
@@ -129,25 +145,60 @@ button:hover {
     margin-right: 6px; 
     border-radius: 3px;
 }
+
+/* Botão Sonda Ativo */
+.button-sonda {
+    background: #10b981;
+}
+.button-sonda:hover {
+    background: #059669;
+}
+.button-sonda.active {
+    background: #dc2626; /* Vermelho para "Desativar" */
+}
+.button-sonda.active:hover {
+    background: #b91c1c;
+}
+
+/* Ícone da Sonda Fixa */
+.sonda-fixed-icon {
+    font-size: 20px;
+    text-shadow: 0 0 3px #000;
+}
+
+
 /* Media Query para telas menores (Celulares) */
 @media (max-width: 600px) {
+    /* Ajusta a altura do mapa e da barra para telas pequenas */
+    #map {
+        height: calc(100% - 150px); 
+    }
     #search-bar {
-        padding: 6px;
+        height: 150px; 
+        flex-wrap: wrap;
     }
     .linha-inputs {
-        flex-direction: column; /* Stack inputs vertically */
-        gap: 6px;
+        flex-direction: column; 
+        gap: 5px;
+        align-items: stretch;
     }
     input[type="number"], button {
         width: 100%;
-        box-sizing: border-box; /* Garante que padding e border sejam incluídos na largura */
+        box-sizing: border-box; 
     }
-    /* Posiciona o painel de info/legenda no topo para mobile, abaixo da barra de busca */
+    /* Painel de info no celular */
     .info-panel {
-        top: auto;
-        bottom: 10px; 
-        left: 10px; 
-        right: 10px;
         max-width: none;
+        left: 5px;
+        right: 5px;
+        bottom: 5px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: space-around;
+        padding: 5px;
+    }
+    .info-panel fieldset {
+        flex-basis: 200px;
+        flex-grow: 1;
     }
 }
