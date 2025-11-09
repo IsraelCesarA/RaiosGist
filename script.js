@@ -37,7 +37,7 @@ async function fetchPosto(numero) {
         const xmlDoc = parser.parseFromString(xmlString, "application/xml");
         
         // 3. Extrair os dados das tags XML
-        // (Assumindo que os nomes das tags são 'latitude', 'longitude', 'nome' e 'raio')
+        // (Os nomes das tags da API são: latitude, longitude, nome, raio)
         const latNode = xmlDoc.getElementsByTagName("latitude")[0];
         const lngNode = xmlDoc.getElementsByTagName("longitude")[0];
         const nomeNode = xmlDoc.getElementsByTagName("nome")[0];
@@ -45,6 +45,7 @@ async function fetchPosto(numero) {
 
         // 4. Verificar se as tags essenciais (lat/lng) existem
         if (!latNode || !lngNode) {
+            // Se não achar, tenta a simulação para não quebrar a busca
             throw new Error('Formato XML inesperado ou tags <latitude>/<longitude> não encontradas.');
         }
 
@@ -162,6 +163,7 @@ document.getElementById('btnBuscarPosto').addEventListener('click', async () => 
     if (!numero) return alert('Digite um número de posto para buscar no GIST.');
 
     try {
+        // Chama a função fetchPosto (agora corrigida)
         const data = await fetchPosto(parseInt(numero));
 
         const lat = parseFloat(data.latitude);
@@ -170,6 +172,7 @@ document.getElementById('btnBuscarPosto').addEventListener('click', async () => 
         const raioApi = data.raio || 0;
 
         if (isNaN(lat) || isNaN(lng)) {
+            // Isso pode acontecer se a API retornar dados inválidos ou a simulação falhar
             return alert('Posto encontrado, mas sem coordenadas válidas.');
         }
 
@@ -313,7 +316,7 @@ map.on('contextmenu', (e) => {
     } else {
         // Se já estava desativada, apenas atualiza as coordenadas no painel.
         document.getElementById('sondaLat').textContent = lat.toFixed(6);
-        document.getElementById('sondaLng').textContent = lat.toFixed(6);
+        document.getElementById('sondaLng').textContent = lng.toFixed(6);
     }
     
     // Move o mapa para o novo ponto fixo
