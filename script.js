@@ -1,299 +1,202 @@
-// Variáveis Globais do Mapa e Camadas
+// Configuração e Inicialização do Mapa
 const map = L.map('map').setView([-3.7678, -38.5365], 12);
-// layerGroup é agora usado para todos os pontos fixos (GIST, Validadores)
-let layerGroup = L.layerGroup().addTo(map); 
-let sondaMarker = null;
-let isSondaActive = false; // Sonda agora começa DESATIVADA
-
-// Variáveis para rastrear os marcadores atuais
-let gistMarkerSet = false;
-let validadorMarkerSet = false;
-let fixedSondaMarker = null;
-let fixedSondaCircle = null; // Novo para rastrear o raio fixo
-
-// URLs de API
-const API_URL = 'http://gistapis.etufor.ce.gov.br:8081/api/postoControle/';
-const PLACEHOLDER_LAT = -3.7317; // Lat/Lng de Fortaleza para simulação
-const PLACEHOLDER_LNG = -38.5267;
-
-// Inicialização do Mapa
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/">OpenStreetMap</a>',
-    maxZoom: 19,
+    attribution: '© <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
 }).addTo(map);
 
-// Função para simular a chamada à API (se a API real falhar ou não estiver acessível)
-async function fetchPosto(numero) {
-    try {
-        const resp = await fetch(`${API_URL}${numero}`);
-        if (!resp.ok) throw new Error('API indisponível ou erro 404.');
-        const data = await resp.json();
-        return data;
-    } catch (e) {
-        console.warn(`Erro ao acessar API (${e.message}). Usando dados de simulação.`);
-        // Dados simulados para garantir a funcionalidade
-        return {
-            latitude: PLACEHOLDER_LAT + (numero % 10) * 0.001, // Varia um pouco
-            longitude: PLACEHOLDER_LNG + (numero % 10) * 0.001,
-            nome: `Posto Simulador ${numero}`,
-            raio: 150 // Raio API simulado
-        };
-    }
-}
+// Variáveis de Estado Global
+let gistMarker, validadorMarker, sondaMarker, sondaCircle;
+let isSondaActive = false;
+let fixedSondaMarkers = L.featureGroup().addTo(map); // Grupo para marcadores fixos da sonda
+let postoLayerGroup = L.featureGroup().addTo(map); // Grupo para GIST (posto)
+let validadorLayerGroup = L.featureGroup().addTo(map); // Grupo para Validadores (manual)
 
-/**
- * Desenha o marcador e os 3 raios (API, Entrada, Saída) para GIST ou Validador.
- * @param {number} lat - Latitude.
- * @param {number} lng - Longitude.
- * @param {string} nome - Nome do local.
- * @param {number} raioApi - Raio da API (0 se for Validador).
- * @param {number} raioEntrada - Raio de Entrada.
- * @param {number} raioSaida - Raio de Saída.
- * @param {string} type - Tipo de marcador ('gist' ou 'validador').
- */
-function desenharRaio(lat, lng, nome, raioApi, raioEntrada, raioSaida, type) {
-    
-    // Remove apenas o marcador do mesmo tipo, permitindo que GIST e Validador coexistam.
-    if (type === 'gist') {
-        layerGroup.eachLayer(layer => {
-            if (layer.options && layer.options.type === 'gist') layerGroup.removeLayer(layer);
-        });
-        gistMarkerSet = true;
-    } else if (type === 'validador') {
-        layerGroup.eachLayer(layer => {
-            if (layer.options && layer.options.type === 'validador') layerGroup.removeLayer(layer);
-        });
-        validadorMarkerSet = true;
-    }
-    
-    const info = {
-        name: nome,
-        raioApi: raioApi,
-        raioEntrada: raioEntrada,
-        raioSaida: raioSaida
-    };
+// Inicialização do Marcador da Sonda (Invisível por padrão)
+sondaMarker = L.marker([0, 0], { opacity: 0 }).addTo(map); // Opacity 0 para começar invisível
 
-    // 2. Cria o Marcador 
-    const isValidador = (type === 'validador');
-    const color = isValidador ? 'green' : 'blue';
-    const iconUrl = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="${color}" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`;
-
-    const customIcon = L.icon({
-        iconUrl: iconUrl,
-        iconSize: [24, 24],
-        iconAnchor: [12, 24],
-        popupAnchor: [0, -24]
-    });
-
-    const marker = L.marker([lat, lng], { icon: customIcon, type: type })
-        .bindPopup(`<strong>${nome}</strong><br>Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`)
-        .addTo(layerGroup);
-
-    // 3. Raio da API (Azul) - SOMENTE para GIST e se raio > 0
-    if (type === 'gist' && raioApi > 0) {
-        L.circle([lat, lng], {
-            color: 'blue', fillColor: '#3f83f8', fillOpacity: 0.3, radius: raioApi, weight: 2, dashArray: '5, 5', type: type
-        }).addTo(layerGroup).bindPopup(`Raio API: ${raioApi}m`);
-    }
-
-    // 4. Raio de Entrada (Vermelho)
-    L.circle([lat, lng], {
-        color: 'red', fillColor: '#f87171', fillOpacity: 0.25, radius: raioEntrada, weight: 2, type: type
-    }).addTo(layerGroup).bindPopup(`Raio Entrada: ${raioEntrada}m`);
-
-    // 5. Raio de Saída (Amarelo)
-    L.circle([lat, lng], {
-        color: 'orange', fillColor: '#facc15', fillOpacity: 0.2, radius: raioSaida, weight: 2, type: type
-    }).addTo(layerGroup).bindPopup(`Raio Saída: ${raioSaida}m`);
-
-    // 6. Ajusta a visualização e atualiza o painel de informações (só para o ponto mais recente)
-    map.setView([lat, lng], 16);
-    updateInfoPanel(info);
-}
-
-/**
- * Atualiza o painel de informações na lateral
- * @param {object} info - Informações a serem exibidas.
- */
-function updateInfoPanel(info) {
-    document.getElementById('nomePosto').textContent = info.name;
-    document.getElementById('raioPosto').textContent =
-        `API: ${info.raioApi}m | Entrada: ${info.raioEntrada}m | Saída: ${info.raioSaida}m`;
-}
-
-// --- FUNÇÕES DE INTERAÇÃO (Botões) ---
-
-// 1. Busca GIST pelo Posto
-document.getElementById('btnBuscarPosto').addEventListener('click', async () => {
+// Função para buscar dados do posto (GIST)
+async function fetchPosto() {
     const numero = document.getElementById('postoInput').value.trim();
+    if (!numero) return console.error('Digite um número de posto');
+
+    let data;
+
+    try {
+        // Tenta buscar na API real
+        const resp = await fetch(`http://gistapis.etufor.ce.gov.br:8081/api/postoControle/${numero}`);
+        if (!resp.ok) {
+            throw new Error(`Erro na API: Status ${resp.status}`);
+        }
+        data = await resp.json();
+    } catch (err) {
+        // Se a API falhar, usa dados simulados
+        console.warn(`Falha ao acessar API GIST. Usando dados simulados para o posto ${numero}. Erro:`, err.message);
+        data = simularDadosPosto(numero);
+        
+        if (!data) {
+            // Se não houver simulação para o número, alerta o usuário
+            return alert(`Posto ${numero} não encontrado na simulação.`);
+        }
+    }
+
+    // Mapeamento dos campos, assumindo que eles podem variar ou falhar na API
+    const lat = parseFloat(data.latitude || data.Lat);
+    const lng = parseFloat(data.longitude || data.Lng);
+    const nome = data.nome || data.Nome || `Posto ${numero}`;
+    // Se o campo 'raio' vier, usa ele; senão, usa 100m como padrão API
+    const raioApi = parseInt(data.raio || data.Raio || 100); 
+
+    if (isNaN(lat) || isNaN(lng) || !lat || !lng) {
+        return alert('Coordenadas inválidas recebidas da API/Simulação.');
+    }
+
     const raioEntrada = parseInt(document.getElementById('raioEntrada').value) || 100;
     const raioSaida = parseInt(document.getElementById('raioSaida').value) || 200;
 
-    if (!numero) return alert('Digite um número de posto para buscar no GIST.');
+    desenharRaio(lat, lng, nome, raioApi, raioEntrada, raioSaida, 'gist');
+}
 
-    try {
-        const data = await fetchPosto(parseInt(numero));
+// Simulação de dados para teste (apenas para fallback)
+function simularDadosPosto(numero) {
+    const postos = {
+        '1': { nome: 'Posto Simulado 1 (GIST)', latitude: -3.7650, longitude: -38.5350, raio: 100 },
+        '2': { nome: 'Posto Simulado 2 (GIST)', latitude: -3.7500, longitude: -38.5200, raio: 80 },
+        '3': { nome: 'Posto Simulado 3 (GIST)', latitude: -3.7780, longitude: -38.5450, raio: 120 }
+    };
+    return postos[numero.toString()];
+}
 
-        const lat = parseFloat(data.latitude);
-        const lng = parseFloat(data.longitude);
-        const nome = data.nome || `Posto ${numero}`;
-        const raioApi = data.raio || 0;
-
-        if (isNaN(lat) || isNaN(lng)) {
-            return alert('Posto encontrado, mas sem coordenadas válidas.');
-        }
-
-        desenharRaio(lat, lng, nome, raioApi, raioEntrada, raioSaida, 'gist');
-
-    } catch (err) {
-        console.error("Erro no processamento do Posto:", err);
-        alert('Erro ao buscar posto. Verifique o console para detalhes.');
-    }
-});
-
-// 2. Usa Lat/Lng para Validadores
-document.getElementById('btnUsarLatLng').addEventListener('click', () => {
+// Função para usar Lat/Lng manual (Validadores)
+function usarLatLng() {
     const lat = parseFloat(document.getElementById('latInput').value);
     const lng = parseFloat(document.getElementById('lngInput').value);
+
+    if (isNaN(lat) || isNaN(lng)) {
+        return alert('Informe latitude e longitude válidas');
+    }
+
     const raioEntrada = parseInt(document.getElementById('raioEntrada').value) || 100;
     const raioSaida = parseInt(document.getElementById('raioSaida').value) || 200;
 
-    if (isNaN(lat) || isNaN(lng)) {
-        return alert('Informe latitude e longitude válidas para Validadores.');
+    desenharRaio(lat, lng, "Coordenada Manual (Validadores)", 0, raioEntrada, raioSaida, 'validador');
+}
+
+// Função principal de desenho de raios
+function desenharRaio(lat, lng, nome, raioApi, raioEntrada, raioSaida, tipo) {
+    let currentLayerGroup = (tipo === 'gist') ? postoLayerGroup : validadorLayerGroup;
+
+    // Remove APENAS os elementos anteriores deste tipo de marcador
+    currentLayerGroup.clearLayers();
+
+    // Marcador
+    const marker = L.marker([lat, lng]).bindPopup(`${nome}`).addTo(currentLayerGroup);
+
+    // Raio da API (Azul) - Apenas para GIST
+    if (tipo === 'gist' && raioApi > 0) {
+        L.circle([lat, lng], {
+            color: 'blue', fillColor: '#3f83f8', fillOpacity: 0.3, radius: raioApi, weight: 1
+        }).addTo(currentLayerGroup);
     }
 
-    desenharRaio(lat, lng, "Validadores (Manual)", 0, raioEntrada, raioSaida, 'validador');
+    // Raio de Entrada (Vermelho)
+    L.circle([lat, lng], {
+        color: 'red', fillColor: '#f87171', fillOpacity: 0.3, radius: raioEntrada, weight: 1
+    }).addTo(currentLayerGroup);
+
+    // Raio de Saída (Amarelo)
+    L.circle([lat, lng], {
+        color: 'orange', fillColor: '#facc15', fillOpacity: 0.3, radius: raioSaida, weight: 1
+    }).addTo(currentLayerGroup);
+
+    map.setView([lat, lng], 16);
+
+    // Atualiza o painel de informações
+    document.getElementById('nomePosto').textContent = nome;
+    document.getElementById('raioPosto').textContent =
+        `API: ${raioApi} m | Entrada: ${raioEntrada} m | Saída: ${raioSaida} m`;
+}
+
+// --- Lógica da Sonda (Controle por Mouse) ---
+
+// Função para formatar coordenadas
+function formatCoord(coord) {
+    return coord.toFixed(6);
+}
+
+// Evento de Movimento do Mouse
+map.on('mousemove', function(e) {
+    if (isSondaActive) {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+
+        // Move o marcador da sonda
+        sondaMarker.setLatLng([lat, lng]);
+        
+        // Atualiza as coordenadas no painel
+        document.getElementById('sondaLat').textContent = formatCoord(lat);
+        document.getElementById('sondaLng').textContent = formatCoord(lng);
+    }
 });
 
-// --- FUNÇÕES DA SONDA (Mouse Move & Fixação) ---
-
-// 3. Inicializa o Marcador da Sonda
-function initializeSondaMarker() {
-    // Ícone da Sonda (um pequeno círculo magenta)
-    const customIcon = L.divIcon({
-        className: 'sonda-marker-container',
-        html: '<span class="sonda-marker"></span>',
-        iconSize: [15, 15],
-        iconAnchor: [7.5, 7.5]
-    });
-
-    sondaMarker = L.marker([0, 0], { icon: customIcon }).addTo(map);
-    sondaMarker.setOpacity(0); // Esconde a sonda até ser ativada
-}
-
-// 4. Manipulador de Movimento do Mouse
-function handleMouseMove(e) {
-    if (!isSondaActive) return;
-
-    const lat = e.latlng.lat;
-    const lng = e.latlng.lng;
-
-    // Atualiza a posição do marcador no mapa
-    sondaMarker.setLatLng([lat, lng]).setOpacity(1);
-
-    // Atualiza as etiquetas (span#sondaLat e span#sondaLng)
-    document.getElementById('sondaLat').textContent = lat.toFixed(6);
-    document.getElementById('sondaLng').textContent = lng.toFixed(6);
-}
-
-// 5. Alterna Ativação da Sonda
+// Alterna o estado da Sonda (Ativar/Desativar)
 function toggleSonda() {
     isSondaActive = !isSondaActive;
     const button = document.getElementById('toggleSonda');
-
+    
     if (isSondaActive) {
         button.textContent = 'Desativar Sonda';
-        button.classList.add('btn-primary');
-        button.classList.remove('btn-secondary');
-        map.on('mousemove', handleMouseMove);
-        // Garante que o marcador móvel seja visível, a menos que haja um fixo.
-        if (!fixedSondaMarker) {
-             sondaMarker.setOpacity(1); 
-        } else {
-             sondaMarker.setOpacity(0); // Esconde o móvel se já houver um fixo
-        }
-        document.getElementById('sondaLat').textContent = 'Aguardando...';
-        document.getElementById('sondaLng').textContent = 'Aguardando...';
+        button.classList.add('active');
+        sondaMarker.setOpacity(1); // Torna o marcador visível
     } else {
         button.textContent = 'Ativar Sonda';
-        button.classList.add('btn-secondary');
-        button.classList.remove('btn-primary');
-        map.off('mousemove', handleMouseMove);
-        sondaMarker.setOpacity(0); // Esconde a sonda móvel ao desativar
-        // Se houver um marcador fixo, mostra suas coordenadas ao invés de 'Desativada'
-        if (fixedSondaMarker) {
-             const latlng = fixedSondaMarker.getLatLng();
-             document.getElementById('sondaLat').textContent = latlng.lat.toFixed(6);
-             document.getElementById('sondaLng').textContent = latlng.lng.toFixed(6);
-        } else {
-             document.getElementById('sondaLat').textContent = 'Desativada';
-             document.getElementById('sondaLng').textContent = 'Desativada';
-        }
+        button.classList.remove('active');
+        sondaMarker.setOpacity(0); // Torna o marcador invisível
     }
 }
-document.getElementById('toggleSonda').addEventListener('click', toggleSonda);
 
-// 6. Fixa Sonda com Botão Direito (Contextmenu) e Desenha Raio
-map.on('contextmenu', (e) => {
-    // Evita o menu padrão do navegador
-    L.DomEvent.preventDefault(e); 
-
-    const lat = e.latlng.lat;
-    const lng = e.latlng.lng;
-    
-    // Pega o raio configurado para a sonda (default 50m)
-    const raioSonda = parseInt(document.getElementById('raioSonda').value) || 50;
-
-    // Limpa o marcador e o raio fixos anteriores
-    if (fixedSondaMarker) map.removeLayer(fixedSondaMarker);
-    if (fixedSondaCircle) map.removeLayer(fixedSondaCircle);
-    
-    // Remove o marcador móvel para não ter duplicidade
-    sondaMarker.setOpacity(0); 
-    
-    // Ícone para o marcador fixo (diferente ou apenas fixo)
-    const customIcon = L.divIcon({
-        className: 'sonda-marker-container fixed-sonda',
-        html: '<span class="sonda-marker" style="background-color: #8A2BE2; border-color: white;"></span>', // Cor roxa para fixo
-        iconSize: [20, 20],
-        iconAnchor: [10, 10]
-    });
-
-    // 1. Cria o Marcador Fixo
-    fixedSondaMarker = L.marker([lat, lng], { 
-        icon: customIcon, 
-        title: 'Sonda Fixada'
-    }).addTo(map)
-      .bindPopup(`<strong>Sonda Fixada</strong><br>Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}<br>Raio: ${raioSonda}m`).openPopup();
-      
-    // 2. Cria o Raio Fixo (Roxo)
-    fixedSondaCircle = L.circle([lat, lng], {
-        color: '#8A2BE2', // Roxo
-        fillColor: '#8A2BE2',
-        fillOpacity: 0.15, 
-        radius: raioSonda, 
-        weight: 2,
-        type: 'sonda' // Identificador do tipo
-    }).addTo(map).bindPopup(`Raio Sonda: ${raioSonda}m`);
-
-    // **IMPORTANTE**: Desativa a Sonda Móvel
+// Fixa o Marcador da Sonda com Botão Direito (Contextmenu)
+map.on('contextmenu', function(e) {
+    // Só funciona se a sonda estiver ATIVA
     if (isSondaActive) {
-        // Usa a função toggle para atualizar o estado e o botão
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+        const raioSonda = parseInt(document.getElementById('raioSondaInput').value) || 150;
+        
+        // Fixa um novo marcador
+        const fixedMarker = L.marker([lat, lng], {
+            icon: L.divIcon({
+                className: 'sonda-fixed-icon',
+                html: '📍',
+                iconSize: [24, 24]
+            })
+        }).bindPopup(`Sonda Fixa: ${formatCoord(lat)}, ${formatCoord(lng)} | Raio: ${raioSonda}m`);
+        
+        // Desenha o Raio da Sonda (Roxo)
+        sondaCircle = L.circle([lat, lng], {
+            color: '#a855f7', 
+            fillColor: '#a855f7', 
+            fillOpacity: 0.2, 
+            radius: raioSonda, 
+            weight: 2
+        });
+
+        // Adiciona marcador e círculo ao grupo de fixos
+        fixedSondaMarkers.addLayer(fixedMarker);
+        fixedSondaMarkers.addLayer(sondaCircle);
+
+        // Opcional: Desativa a Sonda em movimento após fixar
         toggleSonda();
-    } else {
-        // Se já estava desativada, apenas atualiza as coordenadas no painel.
-        document.getElementById('sondaLat').textContent = lat.toFixed(6);
-        document.getElementById('sondaLng').textContent = lng.toFixed(6);
+        alert(`Sonda fixada em: ${formatCoord(lat)}, ${formatCoord(lng)} com Raio de ${raioSonda}m. Modo Sonda Desativado.`);
     }
-    
-    // Move o mapa para o novo ponto fixo
-    map.setView([lat, lng], 16);
 });
 
-// --- Inicialização Geral ---
+// Buscar também quando pressionar Enter no campo posto
+document.getElementById('postoInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        fetchPosto();
+    }
+});
 
-// Inicializa o marcador da sonda assim que o script é carregado
-initializeSondaMarker();
-
-// A Sonda começa DESATIVADA. 
-// O manipulador de mousemove é adicionado na inicialização e removido/adicionado pelo toggle.
+// Inicializa a Sonda com as coordenadas iniciais
+document.getElementById('sondaLat').textContent = formatCoord(map.getCenter().lat);
+document.getElementById('sondaLng').textContent = formatCoord(map.getCenter().lng);
