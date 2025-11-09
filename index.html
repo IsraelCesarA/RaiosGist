@@ -2,86 +2,79 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Mapa de Postos e Validadores</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Postos ETUFOR</title>
+    <!-- Carrega o Leaflet CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
-    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Carrega o CSS customizado -->
-    <link rel="stylesheet" href="styles.css"/>
-    <style>
-        /* Ajuste de margem para evitar conflito com painéis em telas pequenas */
-        #map {height: calc(100vh - 120px);} 
-    </style>
+    <!-- Carrega o CSS local -->
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
+    <!-- Barra Superior de Controles -->
     <div id="search-bar">
-        <!-- 1. GIST - Posto de Controle -->
-        <fieldset class="fieldset-controls">
-            <legend>1. GIST - Posto de Controle</legend>
+        <!-- 1. GIST - Busca por Posto -->
+        <fieldset class="input-group">
+            <legend>1. GIST - Busca por Posto</legend>
             <div class="linha-inputs">
                 <input id="postoInput" type="number" placeholder="Digite o número do posto">
                 <input id="raioEntrada" type="number" placeholder="Raio Entrada (m)" value="100">
                 <input id="raioSaida" type="number" placeholder="Raio Saída (m)" value="200">
-                <button onclick="fetchPosto()">Buscar Posto</button>
+                <button onclick="buscarPosto()">Buscar Posto</button>
             </div>
         </fieldset>
 
         <!-- 2. Validadores - Coordenada Manual -->
-        <fieldset class="fieldset-controls">
+        <fieldset class="input-group">
             <legend>2. Validadores - Coordenada Manual</legend>
             <div class="linha-inputs">
-                <input id="latInput" type="number" step="0.000001" placeholder="Latitude manual">
-                <input id="lngInput" type="number" step="0.000001" placeholder="Longitude manual">
-                <input id="raioEntradaManual" type="number" placeholder="Raio Entrada (m)" value="100">
-                <input id="raioSaidaManual" type="number" placeholder="Raio Saída (m)" value="200">
-                <button onclick="desenharValidador()">Desenhar Ponto</button>
+                <input id="latInput" type="number" step="0.000001" placeholder="Latitude Manual">
+                <input id="lngInput" type="number" step="0.000001" placeholder="Longitude Manual">
+                <button onclick="usarLatLng()">Desenhar Raio Manual</button>
             </div>
         </fieldset>
     </div>
-
+    
+    <!-- Onde o mapa é renderizado -->
     <div id="map"></div>
 
-    <!-- Painel da Sonda -->
-    <div id="info-sonda" class="info-panel-sonda">
-        <fieldset class="fieldset-sonda">
+    <!-- Painel de Informações e Legenda (Inferior Esquerdo) -->
+    <div id="info-panel" class="info-panel">
+        
+        <!-- 3. Sonda (Controle por Mouse) -->
+        <fieldset class="info-sonda">
             <legend>3. Sonda - Controle por Mouse</legend>
             <div class="sonda-coords">
-                Lat: <span id="sondaLat">-</span>
-                Lng: <span id="sondaLng">-</span>
+                <!-- Correção de layout: Lat e Lng na mesma linha -->
+                <span class="coord-item">Lat: <strong id="sondaLat">--</strong></span>
+                <span class="coord-item">Lng: <strong id="sondaLng">--</strong></span>
             </div>
             <div class="sonda-controls">
-                <input id="raioSonda" type="number" placeholder="Raio Sonda (m)" value="50">
-                <button id="toggleSonda" onclick="toggleSonda()">Ativar Sonda</button>
-            </div>
-            <div class="sonda-info-obs">
-                *Clique Dto para fixar o ponto no mapa.
+                <input id="raioSondaInput" type="number" placeholder="Raio (m)" value="150">
+                <button id="toggleSonda" onclick="toggleSonda()" class="button-sonda">Ativar Sonda</button>
             </div>
         </fieldset>
-    </div>
 
-    <!-- Painel de Legenda e Informações -->
-    <div id="info-panel" class="info-panel" style="display:block;">
-        <div class="info-legend-data">
-            <div class="info-section">
-                <strong>Posto GIST (Azul/Vermelho/Amarelo):</strong>
-                <div id="raioPosto">-</div>
-            </div>
-            <div class="info-section">
-                <strong>Validador Manual (Vermelho/Amarelo):</strong>
-                <div id="raioValidador">-</div>
-            </div>
-        </div>
-        
-        <div class="legend">
-            <strong>Legenda de Raios:</strong>
+        <!-- Informações do Ponto Ativo -->
+        <fieldset class="info-validadores">
+            <legend>Informações do Ponto</legend>
+            <div><strong id="nomePosto">Nenhum Ponto Ativo</strong></div>
+            <div id="raioPosto">-</div>
+        </fieldset>
+
+        <!-- Legenda de Raios -->
+        <fieldset class="legend">
+            <legend>Legenda de Raios:</legend>
             <div class="legend-item"><div class="legend-color" style="background: #3f83f8;"></div>Raio API GIST (Azul)</div>
             <div class="legend-item"><div class="legend-color" style="background: #f87171;"></div>Raio Entrada (Vermelho)</div>
             <div class="legend-item"><div class="legend-color" style="background: #facc15;"></div>Raio Saída (Amarelo)</div>
             <div class="legend-item"><div class="legend-color" style="background: #a855f7;"></div>Raio Sonda (Roxo)</div>
-        </div>
+        </fieldset>
     </div>
 
-    <!-- Carrega o JavaScript com toda a lógica -->
+    <!-- Carrega o Leaflet JS -->
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Carrega o JavaScript local -->
     <script src="script.js"></script>
 </body>
 </html>
